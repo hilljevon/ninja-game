@@ -31,6 +31,7 @@ class Game:
         self.player = Player(self, (50, 50), (8, 15))
         self.clouds = Clouds(self.assets['clouds'], count=16)
         self.tile_map = Tilemap(self, 16)    
+        self.tile_map.load('./data/maps/0.json')
         self.scroll = [0,0]
     def run(self):
         while True:
