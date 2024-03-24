@@ -38,7 +38,25 @@ class Tilemap:
         f = open(path, 'w')
         json.dump({'tilemap': self.tilemap, 'tile_size': self.tile_size, 'offgrid': self.offgrid_tiles}, f)
         f.close()
-        
+    
+    def extract(self, id_pairs, keep=False):
+        matches = []
+        for tile in self.offgrid_tiles.copy():
+            if (tile['type'], tile['variant']) in id_pairs:
+                matches.append(tile.copy())
+                if not keep:
+                    self.offgrid_tiles.remove(tile)
+        for loc in self.tilemap:
+            tile = self.tilemap[loc]
+            if (tile['type'], tile['variant']) in id_pairs:
+                matches.append(tile.copy())
+                matches[-1]['pos'] = matches[-1]['pos'].copy()
+                matches[-1]['pos'][0] *= self.tile_size
+                matches[-1]['pos'][1] *= self.tile_size
+                if not keep:
+                    del self.tilemap[loc]
+        return matches
+
     def load(self, path):
         f = open(path, 'r')
         map_data = json.load(f)
