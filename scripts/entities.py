@@ -2,7 +2,7 @@ import math
 import random
 
 import pygame
-
+from scripts.spark import Spark
 from scripts.particle import Particle
 
 class PhysicsEntity:
@@ -84,20 +84,53 @@ class Enemy(PhysicsEntity):
         if self.walking:
             # this line checks right in front of them to make sure there is a solid tile in front of the enemy
             if tilemap.solid_check((self.rect().centerx + (-7 if self.flip else 7), self.pos[1] + 23 )):
-                movement = (movement[0] - 0.5 if self.flip else 0.5, movement[1]) 
+                if (self.collisions['right'] or self.collisions['left']):
+                    self.flip = not self.flip
+                else:
+                    movement = (movement[0] - 0.5 if self.flip else 0.5, movement[1]) 
             else:
                 self.flip = not self.flip
             self.walking = max(0, self.walking - 1) 
+            if not self.walking:
+                dis = (self.game.player.pos[0] - self.pos[0], self.game.player.pos[1] - self.pos[1])
+                # if the player and enemy y distance are within 16 pixels
+                if (abs(dis[1]) < 16):  
+                    # if enemy is looking left while player is to the left
+                    if (self.flip and dis[0] < 0):
+                        # launches projectile
+                        self.game.projectiles.append([[self.rect().centerx - 7, self.rect().centery], -1.5, 0])
+                        for i in range(4):
+                            self.game.sparks.append(Spark(self.game.projectiles[-1][0], random.random() - 0.5 + math.pi, 2 + random.random()))
+                    # if player is to the right and enemy looking right
+                    elif (not self.flip and dis[0] > 0):
+                        self.game.projectiles.append([[self.rect().centerx + 7, self.rect().centery], 1.5, 0])
+                        for i in range(4):
+                            self.game.sparks.append(Spark(self.game.projectiles[-1][0], random.random() - 0.5, 2 + random.random()))
         elif random.random() < 0.01:
             self.walking = random.randint(30, 120)
         super().update(tilemap, movement=movement)
+
+        if movement[0] !=0:
+            self.set_action('run')
+        else:
+            self.set_action('idle')
+
+    def render(self, surf, offset=(0,0)):
+        super().render(surf, offset=offset)
+
+        if self.flip:
+            # if our player is flipped, we need to flip our gun too. True for x axis, false for y. we offset the gun so it's centered with the enemy
+            surf.blit(pygame.transform.flip(self.game.assets['gun'], True, False), (self.rect().centerx - 4 - self.game.assets['gun'].get_width() - offset[0], 
+            self.rect().centery - offset[1]))
+        else:
+            surf.blit(self.game.assets['gun'], (self.rect().centerx + 4 - offset[0], self.rect().centery - offset[1]))
 
         
 class Player(PhysicsEntity):
     def __init__(self, game, pos, size):
         super().__init__(game, 'player', pos, size)
         self.air_time = 0
-        self.jumps = 1
+        self.jumps = 2
         self.wall_slide = False
         self.dashing = 0
     
@@ -107,7 +140,7 @@ class Player(PhysicsEntity):
         self.air_time += 1
         if self.collisions['down']:
             self.air_time = 0
-            self.jumps = 1
+            self.jumps = 2
             
         self.wall_slide = False
         if (self.collisions['right'] or self.collisions['left']) and self.air_time > 4:
