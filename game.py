@@ -51,6 +51,9 @@ class Game:
         self.load_level(0)
 
         
+        
+
+        
     def load_level(self, map_id):
         self.tilemap.load('data/maps/' + str(map_id) + '.json')
         self.leaf_spawners = []
@@ -61,7 +64,7 @@ class Game:
         for spawner in self.tilemap.extract([('spawners', 0), ('spawners', 1)]):
             if spawner['variant'] != 0:
                 self.player.pos = spawner['pos']
-               
+                self.player.air_time = 0 
             else:
                 self.enemies.append(Enemy(self, spawner['pos'], (8, 15)))
 
@@ -69,12 +72,17 @@ class Game:
         self.particles = []
         self.sparks = []
         self.scroll = [0, 0]
+        self.dead = 0
 
 
     def run(self):
         while True:
             self.display.blit(self.assets['background'], (0, 0))
             
+            if self.dead:
+                self.dead += 1
+                if self.dead > 40:
+                    self.load_level(0)
             self.scroll[0] += (self.player.rect().centerx - self.display.get_width() / 2 - self.scroll[0]) / 30
             self.scroll[1] += (self.player.rect().centery - self.display.get_height() / 2 - self.scroll[1]) / 30
             render_scroll = (int(self.scroll[0]), int(self.scroll[1]))
@@ -90,11 +98,13 @@ class Game:
             self.tilemap.render(self.display, offset=render_scroll)
             
             for enemy in self.enemies.copy():
-                enemy.update(self.tilemap, (0,0))
+                kill = enemy.update(self.tilemap, (0,0))
                 enemy.render(self.display, offset=render_scroll)
-            
-            self.player.update(self.tilemap, (self.movement[1] - self.movement[0], 0))
-            self.player.render(self.display, offset=render_scroll)
+                if kill:
+                    self.enemies.remove(enemy)
+            if not self.dead:
+                self.player.update(self.tilemap, (self.movement[1] - self.movement[0], 0))
+                self.player.render(self.display, offset=render_scroll)
             # projectile array in format [[x, y], direction, timer]
             for projectile in self.projectiles.copy():
                 # add x to the 
@@ -111,8 +121,10 @@ class Game:
                     self.projectiles.remove(projectile)
                 # check if our player is in the initial phase of the dash
                 elif abs(self.player.dashing) < 50:
+                    # if the player is colliding with an enemy bullet
                     if self.player.rect().collidepoint(projectile[0]):
                         self.projectiles.remove(projectile)
+                        self.dead += 1
                         for i in range(30):
                             angle = random.random() * math.pi * 2
                             speed = random.random() * 5
